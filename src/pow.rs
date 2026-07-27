@@ -215,13 +215,16 @@ pub fn verify_solution(options: VerifySolutionOptions<'_>) -> Result<VerifySolut
         });
     }
 
-    // 4b. Full path: re-derive the key from the submitted counter and compare.
+    // 4b. Full path: re-derive the key from the submitted counter and compare,
+    // and require it to satisfy the signed key prefix.
     let nonce_bytes = hex_to_bytes(&params.nonce)?;
     let salt_bytes = hex_to_bytes(&params.salt)?;
     let password = build_password(&nonce_bytes, solution.counter);
     let derived = derive_key(params, &salt_bytes, &password)?;
     let derived_hex = bytes_to_hex(&derived);
-    let valid = constant_time_equal_hex(&derived_hex, &solution.derived_key);
+    let key_matches = constant_time_equal_hex(&derived_hex, &solution.derived_key);
+    let prefix_matches = derived_hex.starts_with(&params.key_prefix);
+    let valid = key_matches && prefix_matches;
 
     Ok(VerifySolutionResult {
         expired: false,

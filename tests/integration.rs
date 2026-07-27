@@ -152,6 +152,60 @@ fn wrong_secret_fails_verification() {
     assert_eq!(result.invalid_signature, Some(true));
 }
 
+/// Regression test: the fallback verification path (no key signature) must reject a
+/// solution whose derived key is genuinely correct for its counter but does not satisfy
+/// the challenge's `keyPrefix`. Previously only `derivedKey == KDF(counter)` was checked,
+/// letting a client submit any counter after a single KDF execution and skip the prefix
+/// search entirely.
+#[test]
+fn fallback_verification_enforces_key_prefix() {
+    let options = CreateChallengeOptions {
+        algorithm: "SHA-256".to_string(),
+        cost: 10,
+        hmac_signature_secret: Some(secret()),
+        ..Default::default()
+    };
+    let challenge = create_challenge(options).expect("create_challenge failed");
+    assert_eq!(challenge.parameters.key_prefix, "00");
+
+    // Find a counter whose honestly-derived key does NOT satisfy the required prefix,
+    // performing exactly one KDF execution per candidate (no prefix search). This is done
+    // by solving a probe challenge whose keyPrefix is "" (matches any key immediately),
+    // which yields the real KDF output for a given counter at zero search cost.
+    let mut probe = challenge.clone();
+    let mut counter_start = 0u32;
+    let (counter, derived_key) = loop {
+        probe.parameters.key_prefix = String::new();
+        let solution = solve_challenge(SolveChallengeOptions {
+            counter_start,
+            ..SolveChallengeOptions::new(&probe)
+        })
+        .expect("solve_challenge failed")
+        .expect("no solution found");
+        if !solution.derived_key.starts_with(&challenge.parameters.key_prefix) {
+            break (solution.counter, solution.derived_key);
+        }
+        counter_start += 1;
+    };
+
+    // Submit the honestly-derived (but prefix-violating) key/counter pair against the
+    // real, signed challenge.
+    let solution = Solution {
+        counter,
+        derived_key,
+        time: None,
+    };
+
+    let result = verify_solution(VerifySolutionOptions::new(&challenge, &solution, secret()))
+        .expect("verify_solution failed");
+
+    assert!(
+        !result.verified,
+        "solution violating key_prefix must not verify"
+    );
+    assert_eq!(result.invalid_solution, Some(true));
+}
+
 #[test]
 fn tampered_counter_fails_verification() {
     let options = CreateChallengeOptions {
