@@ -1,6 +1,6 @@
 use altcha::{
-    create_challenge, solve_challenge, verify_solution, CreateChallengeOptions, Solution,
-    SolveChallengeOptions, VerifySolutionOptions,
+    create_challenge, sign_challenge, solve_challenge, verify_solution, CreateChallengeOptions,
+    HmacAlgorithm, Solution, SolveChallengeOptions, VerifySolutionOptions,
 };
 
 fn secret() -> String {
@@ -159,44 +159,47 @@ fn wrong_secret_fails_verification() {
 /// search entirely.
 #[test]
 fn fallback_verification_enforces_key_prefix() {
-    let options = CreateChallengeOptions {
+    let mut challenge = create_challenge(CreateChallengeOptions {
         algorithm: "SHA-256".to_string(),
         cost: 10,
-        hmac_signature_secret: Some(secret()),
         ..Default::default()
-    };
-    let challenge = create_challenge(options).expect("create_challenge failed");
-    assert_eq!(challenge.parameters.key_prefix, "00");
+    })
+    .expect("create_challenge failed");
 
-    // Find a counter whose honestly-derived key does NOT satisfy the required prefix,
-    // performing exactly one KDF execution per candidate (no prefix search). This is done
-    // by solving a probe challenge whose keyPrefix is "" (matches any key immediately),
-    // which yields the real KDF output for a given counter at zero search cost.
+    // Learn the honest KDF output for counter 0 with exactly one hash computation: solve a
+    // probe copy of the challenge whose keyPrefix is "" (matches immediately, no search).
     let mut probe = challenge.clone();
-    let mut counter_start = 0u32;
-    let (counter, derived_key) = loop {
-        probe.parameters.key_prefix = String::new();
-        let solution = solve_challenge(SolveChallengeOptions {
-            counter_start,
-            ..SolveChallengeOptions::new(&probe)
-        })
+    probe.parameters.key_prefix = String::new();
+    let honest = solve_challenge(SolveChallengeOptions::new(&probe))
         .expect("solve_challenge failed")
         .expect("no solution found");
-        if !solution.derived_key.starts_with(&challenge.parameters.key_prefix) {
-            break (solution.counter, solution.derived_key);
-        }
-        counter_start += 1;
-    };
 
-    // Submit the honestly-derived (but prefix-violating) key/counter pair against the
-    // real, signed challenge.
+    // Pick a keyPrefix the honest key is guaranteed not to satisfy: a byte can't be both
+    // 0x00 and 0xff.
+    let mismatched_prefix = if honest.derived_key.starts_with("00") {
+        "ff"
+    } else {
+        "00"
+    };
+    challenge.parameters.key_prefix = mismatched_prefix.to_string();
+    let signed = sign_challenge(
+        &HmacAlgorithm::Sha256,
+        &mut challenge.parameters,
+        None,
+        &secret(),
+        None,
+    )
+    .expect("sign_challenge failed");
+
+    // Submit the honestly-derived key/counter pair (one KDF execution, no prefix search)
+    // against the challenge whose signed keyPrefix it does not satisfy.
     let solution = Solution {
-        counter,
-        derived_key,
+        counter: honest.counter,
+        derived_key: honest.derived_key,
         time: None,
     };
 
-    let result = verify_solution(VerifySolutionOptions::new(&challenge, &solution, secret()))
+    let result = verify_solution(VerifySolutionOptions::new(&signed, &solution, secret()))
         .expect("verify_solution failed");
 
     assert!(
