@@ -1,6 +1,6 @@
 [package]
 name = "altcha"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Daniel Regeci <536331+ovx@users.noreply.github.com>"]
 description = "The official Rust implementation of the ALTCHA Proof-of-Work (v2) protocol."
