@@ -158,9 +158,11 @@ pub struct CreateChallengeOptions {
     pub expires_at: Option<i64>,
     /// HMAC algorithm for signing (default: `HmacAlgorithm::Sha256`).
     pub hmac_algorithm: HmacAlgorithm,
-    /// HMAC secret for signing derived keys (deterministic mode only).
+    /// HMAC secret for signing derived keys (deterministic mode only). Empty is treated as
+    /// `None`.
     pub hmac_key_signature_secret: Option<String>,
-    /// HMAC secret for signing the challenge payload. If `None`, the challenge is unsigned.
+    /// HMAC secret for signing the challenge payload. If `None` or empty, the challenge is
+    /// unsigned.
     pub hmac_signature_secret: Option<String>,
     /// Length of the derived key in bytes (default: 32).
     pub key_length: usize,
@@ -228,7 +230,8 @@ pub struct VerifySolutionOptions<'a> {
     pub solution: &'a Solution,
     /// HMAC algorithm used to sign the challenge (default: `HmacAlgorithm::Sha256`).
     pub hmac_algorithm: HmacAlgorithm,
-    /// HMAC secret for verifying derived-key signatures (deterministic mode).
+    /// HMAC secret for verifying derived-key signatures (deterministic mode). Empty is
+    /// treated as `None`; an empty `key_signature` on the challenge is likewise ignored.
     pub hmac_key_signature_secret: Option<String>,
     /// HMAC secret used when the challenge was created.
     pub hmac_signature_secret: String,

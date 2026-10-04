@@ -287,6 +287,71 @@ fn key_signature_path_rejects_malformed_derived_key() {
     }
 }
 
+/// Empty secrets count as absent, as in JS: an empty `hmac_signature_secret` leaves the
+/// challenge unsigned and an empty `hmac_key_signature_secret` adds no key signature.
+#[test]
+fn create_challenge_treats_empty_secrets_as_absent() {
+    let unsigned = create_challenge(CreateChallengeOptions {
+        algorithm: "SHA-256".to_string(),
+        cost: 10,
+        hmac_signature_secret: Some(String::new()),
+        ..Default::default()
+    })
+    .expect("create_challenge failed");
+    assert_eq!(unsigned.signature, None);
+
+    let without_key_sig = create_challenge(CreateChallengeOptions {
+        algorithm: "SHA-256".to_string(),
+        cost: 10,
+        counter: Some(1),
+        hmac_signature_secret: Some(secret()),
+        hmac_key_signature_secret: Some(String::new()),
+        ..Default::default()
+    })
+    .expect("create_challenge failed");
+    assert!(without_key_sig.signature.is_some());
+    assert_eq!(without_key_sig.parameters.key_signature, None);
+}
+
+/// An empty verifier key secret or an empty signed `keySignature` skips the key-signature
+/// path (JS: `keySignature && hmacKeySignatureSecret`) and verifies by re-deriving the key.
+/// Previously both took the key-signature path and rejected an honest solution.
+#[test]
+fn verify_treats_empty_key_signature_inputs_as_absent() {
+    let challenge = create_challenge(CreateChallengeOptions {
+        algorithm: "SHA-256".to_string(),
+        cost: 10,
+        counter: Some(1),
+        hmac_signature_secret: Some(secret()),
+        hmac_key_signature_secret: Some("key-secret".to_string()),
+        ..Default::default()
+    })
+    .expect("create_challenge failed");
+    let solution = solve_challenge(SolveChallengeOptions::new(&challenge))
+        .expect("solve_challenge failed")
+        .expect("no solution found");
+
+    // Empty verifier key secret on a challenge with a real key signature.
+    let result = verify_solution(VerifySolutionOptions {
+        hmac_key_signature_secret: Some(String::new()),
+        ..VerifySolutionOptions::new(&challenge, &solution, secret())
+    })
+    .expect("verify_solution failed");
+    assert!(result.verified, "empty key secret: {result:?}");
+
+    // Empty signed keySignature with a real verifier key secret.
+    let mut params = challenge.parameters.clone();
+    params.key_signature = Some(String::new());
+    let empty_key_sig = sign_challenge(&HmacAlgorithm::Sha256, &mut params, None, &secret(), None)
+        .expect("sign_challenge failed");
+    let result = verify_solution(VerifySolutionOptions {
+        hmac_key_signature_secret: Some("key-secret".to_string()),
+        ..VerifySolutionOptions::new(&empty_key_sig, &solution, secret())
+    })
+    .expect("verify_solution failed");
+    assert!(result.verified, "empty keySignature: {result:?}");
+}
+
 #[test]
 fn tampered_counter_fails_verification() {
     let options = CreateChallengeOptions {

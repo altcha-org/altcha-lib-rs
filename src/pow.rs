@@ -69,25 +69,26 @@ pub fn create_challenge(options: CreateChallengeOptions) -> Result<Challenge> {
         None
     };
 
-    if options.hmac_signature_secret.is_none() {
+    // An empty secret counts as absent, as in JS (`!hmacSignatureSecret`).
+    let Some(hmac_signature_secret) = non_empty(options.hmac_signature_secret.as_deref()) else {
         return Ok(Challenge {
             parameters,
             signature: None,
         });
-    }
+    };
 
     sign_challenge(
         &options.hmac_algorithm,
         &mut parameters,
         derived_key_bytes.as_deref(),
-        options.hmac_signature_secret.as_deref().unwrap(),
+        hmac_signature_secret,
         options.hmac_key_signature_secret.as_deref(),
     )
 }
 
 /// Signs challenge parameters and returns a `Challenge` with a signature.
 ///
-/// When `hmac_key_signature_secret` is provided and a `derived_key` is given,
+/// When a non-empty `hmac_key_signature_secret` is provided and a `derived_key` is given,
 /// the derived key is also signed separately so that verification can skip
 /// re-deriving the key (fast-path verification).
 pub fn sign_challenge(
@@ -97,7 +98,7 @@ pub fn sign_challenge(
     hmac_signature_secret: &str,
     hmac_key_signature_secret: Option<&str>,
 ) -> Result<Challenge> {
-    if let (Some(key), Some(key_secret)) = (derived_key, hmac_key_signature_secret) {
+    if let (Some(key), Some(key_secret)) = (derived_key, non_empty(hmac_key_signature_secret)) {
         let key_sig = hmac_sign(algorithm, key, key_secret)?;
         parameters.key_signature = Some(bytes_to_hex(&key_sig));
     }
@@ -246,9 +247,11 @@ pub fn verify_solution(options: VerifySolutionOptions<'_>) -> Result<VerifySolut
     }
 
     // 4a. Fast path: verify the submitted derived key against the key signature.
-    if let (Some(key_sig), Some(key_secret)) =
-        (&params.key_signature, &options.hmac_key_signature_secret)
-    {
+    // Empty values count as absent, as in JS (`keySignature && hmacKeySignatureSecret`).
+    if let (Some(key_sig), Some(key_secret)) = (
+        non_empty(params.key_signature.as_deref()),
+        non_empty(options.hmac_key_signature_secret.as_deref()),
+    ) {
         // The derived key is client-controlled: malformed hex is an invalid solution,
         // not an error.
         let valid = match hex_to_bytes(&solution.derived_key) {
@@ -286,4 +289,9 @@ pub fn verify_solution(options: VerifySolutionOptions<'_>) -> Result<VerifySolut
         time: elapsed_ms(start),
         verified: valid,
     })
+}
+
+/// Treats an empty string like `None`, matching JS truthiness checks on optional strings.
+fn non_empty(value: Option<&str>) -> Option<&str> {
+    value.filter(|s| !s.is_empty())
 }

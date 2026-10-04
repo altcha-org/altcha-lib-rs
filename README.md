@@ -98,8 +98,8 @@ Generates a new challenge with a random 16-byte nonce and salt. If `hmac_signatu
 | `data` | `Option<BTreeMap<String, Value>>` | `None` | Arbitrary metadata embedded in the signed challenge |
 | `expires_at` | `Option<i64>` | `None` | Unix timestamp (seconds) after which the challenge is invalid; `0` means no expiry |
 | `hmac_algorithm` | `HmacAlgorithm` | `Sha256` | HMAC digest algorithm |
-| `hmac_signature_secret` | `Option<String>` | `None` | Secret for signing the challenge; if absent the challenge is unsigned |
-| `hmac_key_signature_secret` | `Option<String>` | `None` | Secret for signing the derived key (deterministic mode only) |
+| `hmac_signature_secret` | `Option<String>` | `None` | Secret for signing the challenge; if absent or empty the challenge is unsigned |
+| `hmac_key_signature_secret` | `Option<String>` | `None` | Secret for signing the derived key (deterministic mode only); empty = absent |
 | `key_length` | `usize` | `32` | Output key length in bytes |
 | `key_prefix` | `String` | `"00"` | Required hex prefix the derived key must start with; normalized to lowercase. Non-hex characters make `create_challenge` return `Error::InvalidParameters` |
 | `key_prefix_length` | `Option<usize>` | `key_length / 2` | Bytes used as prefix in deterministic mode; capped at half the key length |
@@ -149,7 +149,7 @@ Verifies a submitted solution in three steps:
 | `solution` | — | The solution submitted by the client |
 | `hmac_signature_secret` | — | Secret used when the challenge was created |
 | `hmac_algorithm` | `Sha256` | HMAC digest algorithm |
-| `hmac_key_signature_secret` | `None` | Secret for fast-path key signature verification |
+| `hmac_key_signature_secret` | `None` | Secret for fast-path key signature verification; empty = absent |
 
 Use `VerifySolutionOptions::new(&challenge, &solution, "secret")` for defaults.
 
