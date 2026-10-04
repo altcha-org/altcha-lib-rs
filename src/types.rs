@@ -164,7 +164,8 @@ pub struct CreateChallengeOptions {
     pub hmac_signature_secret: Option<String>,
     /// Length of the derived key in bytes (default: 32).
     pub key_length: usize,
-    /// Required hex prefix the derived key must start with (default: `"00"`).
+    /// Required hex prefix the derived key must start with (default: `"00"`). Must contain
+    /// only hex digits; normalized to lowercase; ignored in deterministic mode.
     pub key_prefix: String,
     /// Number of bytes used as the key prefix in deterministic mode (default: `key_length / 2`).
     /// Capped at half the derived key length.

@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use crate::algorithms::derive_key;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::helpers::{
     buffer_starts_with, build_password, bytes_to_hex, canonical_json, constant_time_equal_hex,
     elapsed_ms, hex_to_bytes, hmac_sign, random_bytes_16,
@@ -20,8 +20,21 @@ use crate::types::{
 ///
 /// The challenge is optionally signed with HMAC when `options.hmac_signature_secret`
 /// is provided.
+///
+/// `options.key_prefix` is normalized to lowercase. Returns [`Error::InvalidParameters`]
+/// if it contains non-hex characters (outside deterministic mode, where it is replaced by
+/// the derived prefix).
 pub fn create_challenge(options: CreateChallengeOptions) -> Result<Challenge> {
     let key_prefix_length = options.key_prefix_length.unwrap_or(options.key_length / 2);
+
+    // A malformed prefix is a server misconfiguration: fail here instead of making
+    // clients' solve (and later verify) error out.
+    if options.counter.is_none() && !options.key_prefix.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(Error::InvalidParameters(format!(
+            "key_prefix must be a hex string, got {:?}",
+            options.key_prefix
+        )));
+    }
 
     let nonce_hex = bytes_to_hex(&random_bytes_16());
     let salt_hex = bytes_to_hex(&random_bytes_16());
@@ -32,7 +45,7 @@ pub fn create_challenge(options: CreateChallengeOptions) -> Result<Challenge> {
         data: options.data,
         expires_at: options.expires_at,
         key_length: options.key_length,
-        key_prefix: options.key_prefix,
+        key_prefix: options.key_prefix.to_ascii_lowercase(),
         key_signature: None,
         memory_cost: options.memory_cost,
         nonce: nonce_hex,
@@ -142,9 +155,9 @@ pub fn solve_challenge(options: SolveChallengeOptions<'_>) -> Result<Option<Solu
     }
 }
 
-/// Key prefix matcher following the JS reference rule: an even-length prefix is
-/// hex-decoded and compared as bytes (case-insensitive), an odd-length prefix is
-/// compared as a string against the lowercase hex of the derived key.
+/// Key prefix matcher. The prefix is case-insensitive: an even-length prefix is
+/// hex-decoded and compared as bytes, an odd-length prefix is compared as a string
+/// against the hex of the derived key, ignoring ASCII case.
 enum KeyPrefix<'a> {
     Bytes(Vec<u8>),
     Hex(&'a str),
@@ -162,7 +175,11 @@ impl<'a> KeyPrefix<'a> {
     fn matches(&self, derived: &[u8]) -> bool {
         match self {
             Self::Bytes(prefix) => buffer_starts_with(derived, prefix),
-            Self::Hex(prefix) => bytes_to_hex(derived).starts_with(prefix),
+            Self::Hex(prefix) => {
+                let hex = bytes_to_hex(derived);
+                hex.len() >= prefix.len()
+                    && hex.as_bytes()[..prefix.len()].eq_ignore_ascii_case(prefix.as_bytes())
+            }
         }
     }
 }

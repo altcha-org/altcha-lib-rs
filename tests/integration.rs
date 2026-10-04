@@ -209,30 +209,49 @@ fn fallback_verification_enforces_key_prefix() {
     assert_eq!(result.invalid_solution, Some(true));
 }
 
-/// Regression test: an even-length keyPrefix is compared as bytes (case-insensitive hex)
-/// by the JS reference in both solve and verify. Verify previously did a string compare
-/// against the lowercase derived key, rejecting solutions to uppercase prefixes that its
-/// own solver accepted.
+/// Regression test: the keyPrefix is case-insensitive in solve and verify, for both the
+/// even-length (byte compare) and odd-length (string compare) rules. Verify previously did
+/// a case-sensitive string compare, rejecting solutions its own solver accepted, and an
+/// odd-length uppercase prefix was unsolvable. The prefix is signed as-is, as it would
+/// arrive from another implementation; `create_challenge` itself lowercases it.
 #[test]
-fn fallback_verification_accepts_uppercase_even_prefix() {
-    let challenge = create_challenge(CreateChallengeOptions {
-        algorithm: "SHA-256".to_string(),
-        cost: 10,
-        key_prefix: "0A".to_string(),
-        hmac_signature_secret: Some(secret()),
-        ..Default::default()
-    })
-    .expect("create_challenge failed");
-    let solution = solve_challenge(SolveChallengeOptions::new(&challenge))
-        .expect("solve_challenge failed")
-        .expect("no solution found");
-    assert!(solution.derived_key.starts_with("0a"));
+fn fallback_verification_accepts_uppercase_prefix() {
+    for key_prefix in ["0A", "A"] {
+        let mut challenge = create_challenge(CreateChallengeOptions {
+            algorithm: "SHA-256".to_string(),
+            cost: 10,
+            key_prefix: key_prefix.to_string(),
+            ..Default::default()
+        })
+        .expect("create_challenge failed");
+        assert_eq!(
+            challenge.parameters.key_prefix,
+            key_prefix.to_ascii_lowercase()
+        );
 
-    let result = verify_solution(VerifySolutionOptions::new(&challenge, &solution, secret()))
-        .expect("verify_solution failed");
+        challenge.parameters.key_prefix = key_prefix.to_string();
+        let challenge = sign_challenge(
+            &HmacAlgorithm::Sha256,
+            &mut challenge.parameters,
+            None,
+            &secret(),
+            None,
+        )
+        .expect("sign_challenge failed");
 
-    assert!(result.verified, "solver output must verify: {result:?}");
-    assert_eq!(result.invalid_solution, Some(false));
+        let solution = solve_challenge(SolveChallengeOptions::new(&challenge))
+            .expect("solve_challenge failed")
+            .expect("no solution found");
+        assert!(solution
+            .derived_key
+            .starts_with(&key_prefix.to_ascii_lowercase()));
+
+        let result = verify_solution(VerifySolutionOptions::new(&challenge, &solution, secret()))
+            .expect("verify_solution failed");
+
+        assert!(result.verified, "{key_prefix}: {result:?}");
+        assert_eq!(result.invalid_solution, Some(false));
+    }
 }
 
 /// Regression test: on the key-signature path the client-controlled `derivedKey` is
@@ -400,8 +419,8 @@ fn solver_times_out_for_any_counter_sequence() {
     let challenge = create_challenge(CreateChallengeOptions {
         algorithm: "SHA-256".to_string(),
         cost: 10,
-        // Odd-length prefix is compared against the lowercase hex key: never matches.
-        key_prefix: "z".to_string(),
+        // Odd-length prefix longer than the 64-char hex key: never matches.
+        key_prefix: "0".repeat(65),
         hmac_signature_secret: Some(secret()),
         ..Default::default()
     })
@@ -476,6 +495,34 @@ fn key_prefix_length_capped_at_half_key() {
             .expect("verify_solution failed");
         assert!(result.verified, "key_length {key_length}: {result:?}");
     }
+}
+
+/// A non-hex `key_prefix` is a server misconfiguration and is rejected when the challenge
+/// is created, rather than surfacing as an `Err` from the client's solve.
+#[test]
+fn create_challenge_rejects_non_hex_key_prefix() {
+    for key_prefix in ["zz", "z", "0g"] {
+        let result = create_challenge(CreateChallengeOptions {
+            algorithm: "SHA-256".to_string(),
+            cost: 10,
+            key_prefix: key_prefix.to_string(),
+            ..Default::default()
+        });
+        assert!(
+            matches!(result, Err(altcha::Error::InvalidParameters(_))),
+            "{key_prefix:?}: {result:?}"
+        );
+    }
+
+    // Deterministic mode replaces key_prefix with the derived prefix, so it is not checked.
+    create_challenge(CreateChallengeOptions {
+        algorithm: "SHA-256".to_string(),
+        cost: 10,
+        counter: Some(1),
+        key_prefix: "zz".to_string(),
+        ..Default::default()
+    })
+    .expect("deterministic mode ignores key_prefix");
 }
 
 // ---------------------------------------------------------------------------
