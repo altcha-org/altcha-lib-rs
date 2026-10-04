@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::algorithms::derive_key;
 use crate::error::Result;
@@ -96,7 +96,8 @@ pub fn sign_challenge(
 /// Solves a challenge by iterating counter values until the derived key matches
 /// the required prefix.
 ///
-/// Returns `None` if the timeout is reached before a solution is found.
+/// Returns `None` if the timeout is reached before a solution is found. A `timeout_ms`
+/// of `0` disables the timeout.
 pub fn solve_challenge(options: SolveChallengeOptions<'_>) -> Result<Option<Solution>> {
     let params = &options.challenge.parameters;
 
@@ -106,12 +107,15 @@ pub fn solve_challenge(options: SolveChallengeOptions<'_>) -> Result<Option<Solu
     let key_prefix = KeyPrefix::parse(&params.key_prefix)?;
 
     let start = Instant::now();
-    let timeout = std::time::Duration::from_millis(options.timeout_ms);
+    // `0` disables the timeout, as in the JS reference.
+    let timeout = (options.timeout_ms != 0).then(|| Duration::from_millis(options.timeout_ms));
     let mut counter = options.counter_start;
+    let mut iterations: u64 = 0;
 
     loop {
-        // Check timeout every 10 iterations.
-        if counter % 10 == 0 && start.elapsed() > timeout {
+        // Check timeout every 10 iterations. Counted independently of the counter so
+        // every (counter_start, counter_step) sequence can time out.
+        if iterations % 10 == 0 && timeout.is_some_and(|timeout| start.elapsed() > timeout) {
             return Ok(None);
         }
 
@@ -129,6 +133,7 @@ pub fn solve_challenge(options: SolveChallengeOptions<'_>) -> Result<Option<Solu
         }
 
         counter = counter.wrapping_add(options.counter_step);
+        iterations += 1;
     }
 }
 

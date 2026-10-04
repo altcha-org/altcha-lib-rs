@@ -391,6 +391,61 @@ fn negative_expires_at_is_expired() {
     assert!(!result.verified);
 }
 
+/// Regression test: the solver timeout is checked every 10 iterations, independent of the
+/// counter values. Previously it was checked only when `counter % 10 == 0`, so a sequence
+/// that never hits a multiple of 10 (here: odd counters, as in worker partitioning) never
+/// timed out.
+#[test]
+fn solver_times_out_for_any_counter_sequence() {
+    let challenge = create_challenge(CreateChallengeOptions {
+        algorithm: "SHA-256".to_string(),
+        cost: 10,
+        // Odd-length prefix is compared against the lowercase hex key: never matches.
+        key_prefix: "z".to_string(),
+        hmac_signature_secret: Some(secret()),
+        ..Default::default()
+    })
+    .expect("create_challenge failed");
+
+    // Solve on a separate thread so a regression fails the test instead of hanging it.
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let result = solve_challenge(SolveChallengeOptions {
+            counter_start: 1,
+            counter_step: 2,
+            timeout_ms: 100,
+            ..SolveChallengeOptions::new(&challenge)
+        });
+        let _ = tx.send(result);
+    });
+
+    let result = rx
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .expect("solver did not time out");
+    assert!(result.expect("solve_challenge failed").is_none());
+}
+
+/// `timeout_ms: 0` disables the timeout (JS: `timeout && …`) rather than expiring at once.
+#[test]
+fn zero_timeout_means_no_timeout() {
+    let challenge = create_challenge(CreateChallengeOptions {
+        algorithm: "SHA-256".to_string(),
+        cost: 10,
+        counter: Some(50),
+        hmac_signature_secret: Some(secret()),
+        ..Default::default()
+    })
+    .expect("create_challenge failed");
+
+    let solution = solve_challenge(SolveChallengeOptions {
+        timeout_ms: 0,
+        ..SolveChallengeOptions::new(&challenge)
+    })
+    .expect("solve_challenge failed");
+
+    assert!(solution.is_some(), "timeout_ms 0 must not time out");
+}
+
 // ---------------------------------------------------------------------------
 // Canonical JSON
 // ---------------------------------------------------------------------------

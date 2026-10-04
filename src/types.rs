@@ -202,7 +202,8 @@ pub struct SolveChallengeOptions<'a> {
     pub counter_start: u32,
     /// Counter increment per iteration (default: 1).
     pub counter_step: u32,
-    /// Maximum time to attempt solving in milliseconds (default: 90,000).
+    /// Maximum time to attempt solving in milliseconds; `0` disables the timeout
+    /// (default: 90,000).
     pub timeout_ms: u64,
 }
 

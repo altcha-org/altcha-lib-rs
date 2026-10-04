@@ -114,7 +114,7 @@ Generates a new challenge with a random 16-byte nonce and salt. If `hmac_signatu
 pub fn solve_challenge(options: SolveChallengeOptions<'_>) -> Result<Option<Solution>>
 ```
 
-Iterates counter values from `counter_start`, incrementing by `counter_step`, until the derived key starts with the required prefix. Returns `None` when `timeout_ms` elapses.
+Iterates counter values from `counter_start`, incrementing by `counter_step`, until the derived key starts with the required prefix. Returns `None` when `timeout_ms` elapses; `timeout_ms: 0` disables the timeout.
 
 **`SolveChallengeOptions` fields:**
 
@@ -123,7 +123,7 @@ Iterates counter values from `counter_start`, incrementing by `counter_step`, un
 | `challenge` | — | Reference to the challenge to solve |
 | `counter_start` | `0` | First counter value to try |
 | `counter_step` | `1` | Increment per attempt |
-| `timeout_ms` | `90_000` | Maximum solve time in milliseconds |
+| `timeout_ms` | `90_000` | Maximum solve time in milliseconds; `0` = no timeout |
 
 Use `SolveChallengeOptions::new(&challenge)` to get sensible defaults.
 
