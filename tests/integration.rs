@@ -446,6 +446,38 @@ fn zero_timeout_means_no_timeout() {
     assert!(solution.is_some(), "timeout_ms 0 must not time out");
 }
 
+/// Regression test: `key_prefix_length` is capped at half the derived key length. An
+/// oversized value used to panic slicing the key; a SHA-256 `key_length` above the 32-byte
+/// digest is capped by the actual key, not the requested length.
+#[test]
+fn key_prefix_length_capped_at_half_key() {
+    for (key_length, expected_prefix_bytes) in [(32, 16), (100, 16)] {
+        let challenge = create_challenge(CreateChallengeOptions {
+            algorithm: "SHA-256".to_string(),
+            cost: 10,
+            counter: Some(1),
+            key_length,
+            key_prefix_length: Some(64),
+            hmac_signature_secret: Some(secret()),
+            ..Default::default()
+        })
+        .expect("create_challenge failed");
+
+        assert_eq!(
+            challenge.parameters.key_prefix.len(),
+            expected_prefix_bytes * 2,
+            "key_length {key_length}"
+        );
+
+        let solution = solve_challenge(SolveChallengeOptions::new(&challenge))
+            .expect("solve_challenge failed")
+            .expect("no solution found");
+        let result = verify_solution(VerifySolutionOptions::new(&challenge, &solution, secret()))
+            .expect("verify_solution failed");
+        assert!(result.verified, "key_length {key_length}: {result:?}");
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Canonical JSON
 // ---------------------------------------------------------------------------

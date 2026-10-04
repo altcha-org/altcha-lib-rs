@@ -167,6 +167,7 @@ pub struct CreateChallengeOptions {
     /// Required hex prefix the derived key must start with (default: `"00"`).
     pub key_prefix: String,
     /// Number of bytes used as the key prefix in deterministic mode (default: `key_length / 2`).
+    /// Capped at half the derived key length.
     pub key_prefix_length: Option<usize>,
     /// Memory cost in KiB for memory-hard algorithms (Argon2id, Scrypt).
     pub memory_cost: Option<u32>,

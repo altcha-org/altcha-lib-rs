@@ -15,7 +15,8 @@ use crate::types::{
 ///
 /// Generates a random nonce and salt. If `options.counter` is set the challenge
 /// operates in *deterministic mode*: the key prefix is derived from that counter
-/// so the server knows exactly which key prefix to expect.
+/// so the server knows exactly which key prefix to expect. The prefix is capped at half
+/// the derived key length.
 ///
 /// The challenge is optionally signed with HMAC when `options.hmac_signature_secret`
 /// is provided.
@@ -45,7 +46,11 @@ pub fn create_challenge(options: CreateChallengeOptions) -> Result<Challenge> {
         let salt_bytes = hex_to_bytes(&parameters.salt)?;
         let password = build_password(&nonce_bytes, counter);
         let key = derive_key(&parameters, &salt_bytes, &password)?;
-        parameters.key_prefix = bytes_to_hex(&key[..key_prefix_length]);
+        // Cap at half the key so the prefix never covers the whole key (and never
+        // indexes past it). Uses the actual key length: SHA output may be shorter than
+        // `key_length`.
+        let prefix_len = key_prefix_length.min(key.len() / 2);
+        parameters.key_prefix = bytes_to_hex(&key[..prefix_len]);
         Some(key)
     } else {
         None

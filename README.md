@@ -102,7 +102,7 @@ Generates a new challenge with a random 16-byte nonce and salt. If `hmac_signatu
 | `hmac_key_signature_secret` | `Option<String>` | `None` | Secret for signing the derived key (deterministic mode only) |
 | `key_length` | `usize` | `32` | Output key length in bytes |
 | `key_prefix` | `String` | `"00"` | Required hex prefix the derived key must start with |
-| `key_prefix_length` | `Option<usize>` | `key_length / 2` | Bytes used as prefix in deterministic mode |
+| `key_prefix_length` | `Option<usize>` | `key_length / 2` | Bytes used as prefix in deterministic mode; capped at half the key length |
 | `memory_cost` | `Option<u32>` | `None` | Memory cost in KiB (Argon2id, scrypt `r`) |
 | `parallelism` | `Option<u32>` | `None` | Parallelism factor (Argon2id, scrypt `p`; default 1) |
 
