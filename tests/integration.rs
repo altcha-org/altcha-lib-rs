@@ -1,7 +1,6 @@
 use altcha::{
     create_challenge, sign_challenge, solve_challenge, verify_solution, Challenge, CounterMode,
-    CreateChallengeOptions, HmacAlgorithm, Solution, SolveChallengeOptions,
-    VerifySolutionOptions,
+    CreateChallengeOptions, HmacAlgorithm, Solution, SolveChallengeOptions, VerifySolutionOptions,
 };
 
 fn secret() -> String {

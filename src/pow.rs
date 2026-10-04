@@ -205,8 +205,8 @@ pub fn verify_solution(options: VerifySolutionOptions<'_>) -> Result<VerifySolut
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default();
-        let expired = u64::try_from(expires_at)
-            .map_or(true, |secs| now > std::time::Duration::from_secs(secs));
+        let expired =
+            u64::try_from(expires_at).map_or(true, |secs| now > Duration::from_secs(secs));
         if expired {
             return Ok(VerifySolutionResult {
                 expired: true,
