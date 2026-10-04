@@ -1,5 +1,5 @@
-use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// HMAC digest algorithm used for signing challenges.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]

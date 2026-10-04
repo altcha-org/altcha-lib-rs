@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
 use crate::error::{Error, Result};
-use crate::helpers::{
-    bytes_to_hex, constant_time_equal_hex, elapsed_ms, hmac_sign, sha_hash,
-};
+use crate::helpers::{bytes_to_hex, constant_time_equal_hex, elapsed_ms, hmac_sign, sha_hash};
 use crate::types::{
     HmacAlgorithm, ServerSignaturePayload, ServerSignatureVerificationData,
     VerifyServerSignatureResult,
@@ -29,7 +27,11 @@ pub fn parse_verification_data(data: &str) -> Option<ServerSignatureVerification
             "expire" => out.expire = value.parse().ok(),
             "fields" => {
                 out.fields = Some(
-                    value.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+                    value
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect(),
                 )
             }
             "fieldsHash" => out.fields_hash = Some(value),
@@ -37,7 +39,11 @@ pub fn parse_verification_data(data: &str) -> Option<ServerSignatureVerification
             "ipAddress" => out.ip_address = Some(value),
             "reasons" => {
                 out.reasons = Some(
-                    value.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+                    value
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect(),
                 )
             }
             "score" => out.score = value.parse().ok(),
@@ -70,7 +76,8 @@ pub fn verify_server_signature(
     // Compute expected signature: HMAC(HASH(verificationData), hmacSecret)
     let hash = sha_hash(&algorithm, payload.verification_data.as_bytes());
     let expected_sig = hmac_sign(&algorithm, &hash, hmac_secret)?;
-    let invalid_signature = !constant_time_equal_hex(&payload.signature, &bytes_to_hex(&expected_sig));
+    let invalid_signature =
+        !constant_time_equal_hex(&payload.signature, &bytes_to_hex(&expected_sig));
 
     let verification_data = parse_verification_data(&payload.verification_data);
 
@@ -183,7 +190,10 @@ mod tests {
     #[test]
     fn test_parse_urlencoded_basic() {
         let pairs = parse_urlencoded("foo=bar&baz=qux");
-        assert_eq!(pairs, vec![("foo".into(), "bar".into()), ("baz".into(), "qux".into())]);
+        assert_eq!(
+            pairs,
+            vec![("foo".into(), "bar".into()), ("baz".into(), "qux".into())]
+        );
     }
 
     #[test]

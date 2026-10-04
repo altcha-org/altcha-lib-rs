@@ -112,12 +112,20 @@ struct SubmitResponse {
 
 impl SubmitResponse {
     fn ok(altcha: AltchaResult) -> Self {
-        Self { ok: true, altcha: Some(altcha), error: None }
+        Self {
+            ok: true,
+            altcha: Some(altcha),
+            error: None,
+        }
     }
     fn err(msg: impl Into<String>) -> (StatusCode, Json<Self>) {
         (
             StatusCode::BAD_REQUEST,
-            Json(Self { ok: false, altcha: None, error: Some(msg.into()) }),
+            Json(Self {
+                ok: false,
+                altcha: None,
+                error: Some(msg.into()),
+            }),
         )
     }
 }
@@ -134,10 +142,7 @@ enum AltchaPayload {
     Client(Payload),
 }
 
-async fn post_submit(
-    State(state): State<AppState>,
-    Form(form): Form<SubmitForm>,
-) -> Response {
+async fn post_submit(State(state): State<AppState>, Form(form): Form<SubmitForm>) -> Response {
     let secret = (*state.hmac_secret).as_str();
 
     // 1. Base64-decode the widget payload.
@@ -165,9 +170,7 @@ async fn post_submit(
                     time: r.time,
                     verification_data: None,
                 },
-                Err(err) => {
-                    return SubmitResponse::err(format!("altcha: {err}")).into_response()
-                }
+                Err(err) => return SubmitResponse::err(format!("altcha: {err}")).into_response(),
             }
         }
         Ok(AltchaPayload::ServerSignature(payload)) => {
@@ -181,9 +184,7 @@ async fn post_submit(
                     time: r.time,
                     verification_data: r.verification_data,
                 },
-                Err(err) => {
-                    return SubmitResponse::err(format!("altcha: {err}")).into_response()
-                }
+                Err(err) => return SubmitResponse::err(format!("altcha: {err}")).into_response(),
             }
         }
         Err(_) => {

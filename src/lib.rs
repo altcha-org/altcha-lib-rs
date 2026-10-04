@@ -47,11 +47,9 @@ pub mod types;
 
 pub use error::{Error, Result};
 pub use pow::{create_challenge, sign_challenge, solve_challenge, verify_solution};
-pub use server_signature::{
-    parse_verification_data, verify_fields_hash, verify_server_signature,
-};
+pub use server_signature::{parse_verification_data, verify_fields_hash, verify_server_signature};
 pub use types::{
     Challenge, ChallengeParameters, CounterMode, CreateChallengeOptions, HmacAlgorithm, Payload,
     ServerSignaturePayload, ServerSignatureVerificationData, Solution, SolveChallengeOptions,
-    VerifySolutionOptions, VerifySolutionResult, VerifyServerSignatureResult,
+    VerifyServerSignatureResult, VerifySolutionOptions, VerifySolutionResult,
 };

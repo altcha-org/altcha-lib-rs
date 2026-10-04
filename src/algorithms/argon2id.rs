@@ -14,9 +14,9 @@ pub fn derive_key(
     salt: &[u8],
     password: &[u8],
 ) -> Result<Vec<u8>> {
-    let m_cost = parameters.memory_cost.ok_or_else(|| {
-        Error::InvalidParameters("Argon2id requires memory_cost".to_string())
-    })?;
+    let m_cost = parameters
+        .memory_cost
+        .ok_or_else(|| Error::InvalidParameters("Argon2id requires memory_cost".to_string()))?;
     let t_cost = parameters.cost;
     let p_cost = parameters.parallelism.unwrap_or(1);
     let key_len = parameters.key_length;

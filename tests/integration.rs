@@ -76,7 +76,7 @@ fn roundtrip_scrypt() {
 fn roundtrip_argon2id() {
     let options = CreateChallengeOptions {
         algorithm: "ARGON2ID".to_string(),
-        cost: 1,        // t_cost (passes)
+        cost: 1,              // t_cost (passes)
         memory_cost: Some(8), // m_cost in KiB
         parallelism: Some(1),
         key_prefix: "00".to_string(),
@@ -195,9 +195,12 @@ fn wrong_secret_fails_verification() {
         .expect("solve_challenge failed")
         .expect("no solution found");
 
-    let result =
-        verify_solution(VerifySolutionOptions::new(&challenge, &solution, "wrong-secret"))
-            .expect("verify_solution failed");
+    let result = verify_solution(VerifySolutionOptions::new(
+        &challenge,
+        &solution,
+        "wrong-secret",
+    ))
+    .expect("verify_solution failed");
 
     assert!(!result.verified);
     assert_eq!(result.invalid_signature, Some(true));
@@ -709,9 +712,19 @@ fn canonical_json_sorted_keys() {
 
     let json = serde_json::to_string(&params).unwrap();
     // Keys must be: algorithm, cost, keyLength, keyPrefix, nonce, salt (alphabetical)
-    let expected_keys = ["algorithm", "cost", "keyLength", "keyPrefix", "nonce", "salt"];
+    let expected_keys = [
+        "algorithm",
+        "cost",
+        "keyLength",
+        "keyPrefix",
+        "nonce",
+        "salt",
+    ];
     let value: serde_json::Value = serde_json::from_str(&json).unwrap();
     let obj = value.as_object().unwrap();
     let actual_keys: Vec<&str> = obj.keys().map(|s| s.as_str()).collect();
-    assert_eq!(actual_keys, expected_keys, "JSON keys must be sorted alphabetically");
+    assert_eq!(
+        actual_keys, expected_keys,
+        "JSON keys must be sorted alphabetically"
+    );
 }
