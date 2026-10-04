@@ -209,6 +209,32 @@ fn fallback_verification_enforces_key_prefix() {
     assert_eq!(result.invalid_solution, Some(true));
 }
 
+/// Regression test: an even-length keyPrefix is compared as bytes (case-insensitive hex)
+/// by the JS reference in both solve and verify. Verify previously did a string compare
+/// against the lowercase derived key, rejecting solutions to uppercase prefixes that its
+/// own solver accepted.
+#[test]
+fn fallback_verification_accepts_uppercase_even_prefix() {
+    let challenge = create_challenge(CreateChallengeOptions {
+        algorithm: "SHA-256".to_string(),
+        cost: 10,
+        key_prefix: "0A".to_string(),
+        hmac_signature_secret: Some(secret()),
+        ..Default::default()
+    })
+    .expect("create_challenge failed");
+    let solution = solve_challenge(SolveChallengeOptions::new(&challenge))
+        .expect("solve_challenge failed")
+        .expect("no solution found");
+    assert!(solution.derived_key.starts_with("0a"));
+
+    let result = verify_solution(VerifySolutionOptions::new(&challenge, &solution, secret()))
+        .expect("verify_solution failed");
+
+    assert!(result.verified, "solver output must verify: {result:?}");
+    assert_eq!(result.invalid_solution, Some(false));
+}
+
 #[test]
 fn tampered_counter_fails_verification() {
     let options = CreateChallengeOptions {

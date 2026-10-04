@@ -103,12 +103,7 @@ pub fn solve_challenge(options: SolveChallengeOptions<'_>) -> Result<Option<Solu
     let nonce_bytes = hex_to_bytes(&params.nonce)?;
     let salt_bytes = hex_to_bytes(&params.salt)?;
 
-    // Pre-decode the key prefix bytes if the hex string has even length.
-    let key_prefix_bytes: Option<Vec<u8>> = if params.key_prefix.len() % 2 == 0 {
-        Some(hex_to_bytes(&params.key_prefix)?)
-    } else {
-        None
-    };
+    let key_prefix = KeyPrefix::parse(&params.key_prefix)?;
 
     let start = Instant::now();
     let timeout = std::time::Duration::from_millis(options.timeout_ms);
@@ -123,10 +118,7 @@ pub fn solve_challenge(options: SolveChallengeOptions<'_>) -> Result<Option<Solu
         let password = build_password(&nonce_bytes, counter);
         let derived = derive_key(params, &salt_bytes, &password)?;
 
-        let matched = match &key_prefix_bytes {
-            Some(prefix) => buffer_starts_with(&derived, prefix),
-            None => bytes_to_hex(&derived).starts_with(&params.key_prefix),
-        };
+        let matched = key_prefix.matches(&derived);
 
         if matched {
             return Ok(Some(Solution {
@@ -137,6 +129,31 @@ pub fn solve_challenge(options: SolveChallengeOptions<'_>) -> Result<Option<Solu
         }
 
         counter = counter.wrapping_add(options.counter_step);
+    }
+}
+
+/// Key prefix matcher following the JS reference rule: an even-length prefix is
+/// hex-decoded and compared as bytes (case-insensitive), an odd-length prefix is
+/// compared as a string against the lowercase hex of the derived key.
+enum KeyPrefix<'a> {
+    Bytes(Vec<u8>),
+    Hex(&'a str),
+}
+
+impl<'a> KeyPrefix<'a> {
+    fn parse(prefix: &'a str) -> Result<Self> {
+        if prefix.len() % 2 == 0 {
+            Ok(Self::Bytes(hex_to_bytes(prefix)?))
+        } else {
+            Ok(Self::Hex(prefix))
+        }
+    }
+
+    fn matches(&self, derived: &[u8]) -> bool {
+        match self {
+            Self::Bytes(prefix) => buffer_starts_with(derived, prefix),
+            Self::Hex(prefix) => bytes_to_hex(derived).starts_with(prefix),
+        }
     }
 }
 
@@ -223,7 +240,7 @@ pub fn verify_solution(options: VerifySolutionOptions<'_>) -> Result<VerifySolut
     let derived = derive_key(params, &salt_bytes, &password)?;
     let derived_hex = bytes_to_hex(&derived);
     let key_matches = constant_time_equal_hex(&derived_hex, &solution.derived_key);
-    let prefix_matches = derived_hex.starts_with(&params.key_prefix);
+    let prefix_matches = KeyPrefix::parse(&params.key_prefix)?.matches(&derived);
     let valid = key_matches && prefix_matches;
 
     Ok(VerifySolutionResult {
