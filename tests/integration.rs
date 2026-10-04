@@ -641,6 +641,46 @@ fn create_challenge_rejects_non_hex_key_prefix() {
     .expect("deterministic mode ignores key_prefix");
 }
 
+/// A non-hex `key_prefix` in a signed challenge from elsewhere is invalid input regardless
+/// of its length: solve and verify both return `InvalidParameters`. Previously an
+/// even-length prefix failed hex decoding while an odd-length one made solve run until
+/// the timeout and verify report `invalid_solution`.
+#[test]
+fn solve_and_verify_reject_non_hex_key_prefix() {
+    for key_prefix in ["zz", "zzz"] {
+        let mut params = create_challenge(CreateChallengeOptions {
+            algorithm: "SHA-256".to_string(),
+            cost: 10,
+            ..Default::default()
+        })
+        .expect("create_challenge failed")
+        .parameters;
+        params.key_prefix = key_prefix.to_string();
+        let challenge = sign_challenge(&HmacAlgorithm::Sha256, &mut params, None, &secret(), None)
+            .expect("sign_challenge failed");
+
+        let solved = solve_challenge(SolveChallengeOptions {
+            timeout_ms: 100,
+            ..SolveChallengeOptions::new(&challenge)
+        });
+        assert!(
+            matches!(solved, Err(altcha::Error::InvalidParameters(_))),
+            "solve {key_prefix:?}: {solved:?}"
+        );
+
+        let solution = Solution {
+            counter: 0,
+            derived_key: "00".repeat(32),
+            time: None,
+        };
+        let verified = verify_solution(VerifySolutionOptions::new(&challenge, &solution, secret()));
+        assert!(
+            matches!(verified, Err(altcha::Error::InvalidParameters(_))),
+            "verify {key_prefix:?}: {verified:?}"
+        );
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Canonical JSON
 // ---------------------------------------------------------------------------

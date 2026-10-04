@@ -115,7 +115,7 @@ Generates a new challenge with a random 16-byte nonce and salt. If `hmac_signatu
 pub fn solve_challenge(options: SolveChallengeOptions<'_>) -> Result<Option<Solution>>
 ```
 
-Iterates counter values from `counter_start`, incrementing by `counter_step`, until the derived key starts with the required prefix. Returns `None` when `timeout_ms` elapses; `timeout_ms: 0` disables the timeout.
+Iterates counter values from `counter_start`, incrementing by `counter_step`, until the derived key starts with the required prefix. Returns `None` when `timeout_ms` elapses; `timeout_ms: 0` disables the timeout. A `key_prefix` with non-hex characters returns `Error::InvalidParameters`.
 
 **`SolveChallengeOptions` fields:**
 
@@ -141,7 +141,7 @@ Verifies a submitted solution in three steps:
 
 1. **Expiration** — rejects challenges whose `expires_at` has passed.
 2. **Signature** — recomputes `HMAC(canonical_json(parameters), secret)` and compares in constant time.
-3. **Solution** — either verifies the submitted key against a stored key signature (fast path, deterministic mode) or re-derives the key from the submitted counter (full path).
+3. **Solution** — either verifies the submitted key against a stored key signature (fast path, deterministic mode) or re-derives the key from the submitted counter (full path). On the full path, a signed `key_prefix` with non-hex characters returns `Error::InvalidParameters`.
 
 **`VerifySolutionOptions` fields:**
 

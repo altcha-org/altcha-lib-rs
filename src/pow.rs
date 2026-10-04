@@ -29,11 +29,8 @@ pub fn create_challenge(options: CreateChallengeOptions) -> Result<Challenge> {
 
     // A malformed prefix is a server misconfiguration: fail here instead of making
     // clients' solve (and later verify) error out.
-    if options.counter.is_none() && !options.key_prefix.bytes().all(|b| b.is_ascii_hexdigit()) {
-        return Err(Error::InvalidParameters(format!(
-            "key_prefix must be a hex string, got {:?}",
-            options.key_prefix
-        )));
+    if options.counter.is_none() {
+        validate_key_prefix(&options.key_prefix)?;
     }
 
     let nonce_hex = bytes_to_hex(&random_bytes_16());
@@ -116,7 +113,8 @@ pub fn sign_challenge(
 /// the required prefix.
 ///
 /// Returns `None` if the timeout is reached before a solution is found. A `timeout_ms`
-/// of `0` disables the timeout.
+/// of `0` disables the timeout. Returns [`Error::InvalidParameters`] if the challenge's
+/// `key_prefix` contains non-hex characters.
 pub fn solve_challenge(options: SolveChallengeOptions<'_>) -> Result<Option<Solution>> {
     let params = &options.challenge.parameters;
 
@@ -156,9 +154,10 @@ pub fn solve_challenge(options: SolveChallengeOptions<'_>) -> Result<Option<Solu
     }
 }
 
-/// Key prefix matcher. The prefix is case-insensitive: an even-length prefix is
-/// hex-decoded and compared as bytes, an odd-length prefix is compared as a string
-/// against the hex of the derived key, ignoring ASCII case.
+/// Key prefix matcher. The prefix must be hex digits only, whatever its length, and is
+/// case-insensitive: an even-length prefix is hex-decoded and compared as bytes, an
+/// odd-length prefix is compared as a string against the hex of the derived key,
+/// ignoring ASCII case.
 enum KeyPrefix<'a> {
     Bytes(Vec<u8>),
     Hex(&'a str),
@@ -166,6 +165,7 @@ enum KeyPrefix<'a> {
 
 impl<'a> KeyPrefix<'a> {
     fn parse(prefix: &'a str) -> Result<Self> {
+        validate_key_prefix(prefix)?;
         if prefix.len() % 2 == 0 {
             Ok(Self::Bytes(hex_to_bytes(prefix)?))
         } else {
@@ -185,6 +185,18 @@ impl<'a> KeyPrefix<'a> {
     }
 }
 
+/// A key prefix must consist of hex digits only, whatever its length. It is server-set
+/// and signed, so a malformed one is a misconfiguration and returns an error.
+fn validate_key_prefix(prefix: &str) -> Result<()> {
+    if prefix.bytes().all(|b| b.is_ascii_hexdigit()) {
+        Ok(())
+    } else {
+        Err(Error::InvalidParameters(format!(
+            "key_prefix must be a hex string, got {prefix:?}"
+        )))
+    }
+}
+
 /// Verifies a submitted solution against a challenge.
 ///
 /// Checks (in order):
@@ -192,6 +204,9 @@ impl<'a> KeyPrefix<'a> {
 /// 2. Signature presence — the challenge must have a `signature` field.
 /// 3. Signature validity — HMAC of the canonical JSON of parameters.
 /// 4. Solution validity — either via key signature (fast path) or by re-deriving the key.
+///
+/// Returns [`Error::InvalidParameters`] if a validly signed challenge reaches the
+/// re-derivation path with a `key_prefix` containing non-hex characters.
 pub fn verify_solution(options: VerifySolutionOptions<'_>) -> Result<VerifySolutionResult> {
     let start = Instant::now();
     let challenge = options.challenge;
