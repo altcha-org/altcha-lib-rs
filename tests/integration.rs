@@ -235,6 +235,39 @@ fn fallback_verification_accepts_uppercase_even_prefix() {
     assert_eq!(result.invalid_solution, Some(false));
 }
 
+/// Regression test: on the key-signature path the client-controlled `derivedKey` is
+/// hex-decoded. Non-hex or odd-length input must yield a clean `invalid_solution`, not
+/// an `Err` from `verify_solution`.
+#[test]
+fn key_signature_path_rejects_malformed_derived_key() {
+    let challenge = create_challenge(CreateChallengeOptions {
+        algorithm: "SHA-256".to_string(),
+        cost: 10,
+        counter: Some(0),
+        hmac_signature_secret: Some(secret()),
+        hmac_key_signature_secret: Some("key-secret".to_string()),
+        ..Default::default()
+    })
+    .expect("create_challenge failed");
+
+    for derived_key in ["zz".repeat(32), "abc".to_string()] {
+        let solution = Solution {
+            counter: 0,
+            derived_key,
+            time: None,
+        };
+        let result = verify_solution(VerifySolutionOptions {
+            hmac_key_signature_secret: Some("key-secret".to_string()),
+            ..VerifySolutionOptions::new(&challenge, &solution, secret())
+        })
+        .expect("malformed derivedKey must not return Err");
+
+        assert!(!result.verified, "{:?}", solution.derived_key);
+        assert_eq!(result.invalid_signature, Some(false));
+        assert_eq!(result.invalid_solution, Some(true));
+    }
+}
+
 #[test]
 fn tampered_counter_fails_verification() {
     let options = CreateChallengeOptions {

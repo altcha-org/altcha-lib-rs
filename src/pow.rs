@@ -219,10 +219,16 @@ pub fn verify_solution(options: VerifySolutionOptions<'_>) -> Result<VerifySolut
     if let (Some(key_sig), Some(key_secret)) =
         (&params.key_signature, &options.hmac_key_signature_secret)
     {
-        let derived_key_bytes = hex_to_bytes(&solution.derived_key)?;
-        let expected_key_sig =
-            hmac_sign(&options.hmac_algorithm, &derived_key_bytes, key_secret)?;
-        let valid = constant_time_equal_hex(key_sig, &bytes_to_hex(&expected_key_sig));
+        // The derived key is client-controlled: malformed hex is an invalid solution,
+        // not an error.
+        let valid = match hex_to_bytes(&solution.derived_key) {
+            Ok(derived_key_bytes) => {
+                let expected_key_sig =
+                    hmac_sign(&options.hmac_algorithm, &derived_key_bytes, key_secret)?;
+                constant_time_equal_hex(key_sig, &bytes_to_hex(&expected_key_sig))
+            }
+            Err(_) => false,
+        };
         return Ok(VerifySolutionResult {
             expired: false,
             invalid_signature: Some(false),
