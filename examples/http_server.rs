@@ -59,7 +59,7 @@ async fn get_challenge(State(state): State<AppState>) -> Response {
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_secs()
+                .as_secs() as i64
                 + 600,
         ),
         hmac_signature_secret: Some((*state.hmac_secret).clone()),

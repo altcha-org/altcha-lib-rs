@@ -313,18 +313,21 @@ fn unsigned_challenge_fails_verification() {
     assert_eq!(result.invalid_signature, Some(true));
 }
 
+/// A challenge expires as soon as the current time passes `expires_at`, with sub-second
+/// precision (JS: `expiresAt < Date.now() / 1000`). `expires_at` = the current whole
+/// second must already be expired; truncating `now` to seconds used to grant up to 1s
+/// of grace.
 #[test]
 fn expired_challenge_fails_verification() {
-    let past = std::time::SystemTime::now()
+    let current_second = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
-        .as_secs()
-        - 1; // 1 second in the past
+        .as_secs() as i64;
 
     let options = CreateChallengeOptions {
         algorithm: "PBKDF2/SHA-256".to_string(),
         cost: 100,
-        expires_at: Some(past),
+        expires_at: Some(current_second),
         hmac_signature_secret: Some(secret()),
         ..Default::default()
     };
@@ -335,11 +338,57 @@ fn expired_challenge_fails_verification() {
         time: None,
     };
 
+    // Guarantee `now` is strictly past `current_second` at verification time.
+    std::thread::sleep(std::time::Duration::from_millis(1));
     let result = verify_solution(VerifySolutionOptions::new(&challenge, &solution, secret()))
         .expect("verify_solution failed");
 
     assert!(!result.verified);
     assert!(result.expired);
+}
+
+/// `expires_at = 0` means "no expiry" (JS: `expiresAt && …`, 0 is falsy).
+#[test]
+fn zero_expires_at_never_expires() {
+    let challenge = create_challenge(CreateChallengeOptions {
+        algorithm: "SHA-256".to_string(),
+        cost: 10,
+        expires_at: Some(0),
+        hmac_signature_secret: Some(secret()),
+        ..Default::default()
+    })
+    .expect("create_challenge failed");
+    let solution = solve_challenge(SolveChallengeOptions::new(&challenge))
+        .expect("solve_challenge failed")
+        .expect("no solution found");
+
+    let result = verify_solution(VerifySolutionOptions::new(&challenge, &solution, secret()))
+        .expect("verify_solution failed");
+
+    assert!(!result.expired);
+    assert!(result.verified, "{result:?}");
+}
+
+/// Negative `expires_at` lies before the Unix epoch and is always expired.
+#[test]
+fn negative_expires_at_is_expired() {
+    let challenge = create_challenge(CreateChallengeOptions {
+        algorithm: "SHA-256".to_string(),
+        cost: 10,
+        expires_at: Some(-1),
+        hmac_signature_secret: Some(secret()),
+        ..Default::default()
+    })
+    .expect("create_challenge failed");
+    let solution = solve_challenge(SolveChallengeOptions::new(&challenge))
+        .expect("solve_challenge failed")
+        .expect("no solution found");
+
+    let result = verify_solution(VerifySolutionOptions::new(&challenge, &solution, secret()))
+        .expect("verify_solution failed");
+
+    assert!(result.expired);
+    assert!(!result.verified);
 }
 
 // ---------------------------------------------------------------------------

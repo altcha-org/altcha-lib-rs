@@ -160,7 +160,7 @@ impl<'a> KeyPrefix<'a> {
 /// Verifies a submitted solution against a challenge.
 ///
 /// Checks (in order):
-/// 1. Expiration — if the challenge has an `expires_at` timestamp.
+/// 1. Expiration — if the challenge has a non-zero `expires_at` timestamp.
 /// 2. Signature presence — the challenge must have a `signature` field.
 /// 3. Signature validity — HMAC of the canonical JSON of parameters.
 /// 4. Solution validity — either via key signature (fast path) or by re-deriving the key.
@@ -170,13 +170,16 @@ pub fn verify_solution(options: VerifySolutionOptions<'_>) -> Result<VerifySolut
     let solution = options.solution;
     let params = &challenge.parameters;
 
-    // 1. Expiration check.
-    if let Some(expires_at) = params.expires_at {
-        let now_secs = std::time::SystemTime::now()
+    // 1. Expiration check. Mirrors JS `expiresAt && expiresAt < Date.now() / 1000`:
+    // `0` means no expiry, negative timestamps are always in the past, and the
+    // challenge is expired as soon as `now` passes `expires_at` (sub-second precision).
+    if let Some(expires_at) = params.expires_at.filter(|&t| t != 0) {
+        let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-        if now_secs > expires_at {
+            .unwrap_or_default();
+        let expired = u64::try_from(expires_at)
+            .map_or(true, |secs| now > std::time::Duration::from_secs(secs));
+        if expired {
             return Ok(VerifySolutionResult {
                 expired: true,
                 invalid_signature: None,

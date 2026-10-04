@@ -24,7 +24,7 @@ pub struct ChallengeParameters {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<BTreeMap<String, serde_json::Value>>,
     #[serde(rename = "expiresAt", skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<u64>,
+    pub expires_at: Option<i64>,
     #[serde(rename = "keyLength")]
     pub key_length: usize,
     #[serde(rename = "keyPrefix")]
@@ -153,8 +153,9 @@ pub struct CreateChallengeOptions {
     pub cost: u32,
     /// Arbitrary metadata to embed in the challenge.
     pub data: Option<BTreeMap<String, serde_json::Value>>,
-    /// Unix timestamp (seconds) after which the challenge expires.
-    pub expires_at: Option<u64>,
+    /// Unix timestamp (seconds) after which the challenge expires. `0` means no expiry
+    /// (as in the JS reference); negative values are always expired.
+    pub expires_at: Option<i64>,
     /// HMAC algorithm for signing (default: `HmacAlgorithm::Sha256`).
     pub hmac_algorithm: HmacAlgorithm,
     /// HMAC secret for signing derived keys (deterministic mode only).

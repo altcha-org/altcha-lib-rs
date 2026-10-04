@@ -51,7 +51,7 @@ let challenge = create_challenge(CreateChallengeOptions {
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
-            .as_secs()
+            .as_secs() as i64
             + 600,
     ),
     hmac_signature_secret: Some("my-hmac-secret".to_string()),
@@ -96,7 +96,7 @@ Generates a new challenge with a random 16-byte nonce and salt. If `hmac_signatu
 | `cost` | `u32` | — | Algorithm cost (iterations, time cost, N for scrypt) |
 | `counter` | `Option<u32>` | `None` | Enables deterministic mode; key prefix is derived from this counter |
 | `data` | `Option<BTreeMap<String, Value>>` | `None` | Arbitrary metadata embedded in the signed challenge |
-| `expires_at` | `Option<u64>` | `None` | Unix timestamp (seconds) after which the challenge is invalid |
+| `expires_at` | `Option<i64>` | `None` | Unix timestamp (seconds) after which the challenge is invalid; `0` means no expiry |
 | `hmac_algorithm` | `HmacAlgorithm` | `Sha256` | HMAC digest algorithm |
 | `hmac_signature_secret` | `Option<String>` | `None` | Secret for signing the challenge; if absent the challenge is unsigned |
 | `hmac_key_signature_secret` | `Option<String>` | `None` | Secret for signing the derived key (deterministic mode only) |
