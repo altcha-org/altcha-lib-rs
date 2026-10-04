@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256, Sha384, Sha512};
 use subtle::ConstantTimeEq;
 
 use crate::error::Result;
-use crate::types::HmacAlgorithm;
+use crate::types::{CounterMode, HmacAlgorithm};
 
 /// Converts raw bytes to a lowercase hex string.
 pub fn bytes_to_hex(bytes: &[u8]) -> String {
@@ -96,12 +96,25 @@ pub fn sha_hash(algorithm: &HmacAlgorithm, data: &[u8]) -> Vec<u8> {
 
 /// Builds the password buffer used as KDF input for a given counter value.
 ///
-/// Format: `nonce_bytes || counter.to_be_bytes()` (nonce length + 4 bytes).
-pub fn build_password(nonce_bytes: &[u8], counter: u32) -> Vec<u8> {
-    let mut buf = Vec::with_capacity(nonce_bytes.len() + 4);
-    buf.extend_from_slice(nonce_bytes);
-    buf.extend_from_slice(&counter.to_be_bytes());
-    buf
+/// Format: `nonce_bytes || counter`, where the counter is 4 big-endian bytes in
+/// [`CounterMode::Uint32`] or its decimal UTF-8 string in [`CounterMode::String`].
+pub fn build_password(nonce_bytes: &[u8], counter: u32, mode: CounterMode) -> Vec<u8> {
+    match mode {
+        CounterMode::Uint32 => {
+            let mut buf = Vec::with_capacity(nonce_bytes.len() + 4);
+            buf.extend_from_slice(nonce_bytes);
+            buf.extend_from_slice(&counter.to_be_bytes());
+            buf
+        }
+        CounterMode::String => {
+            use std::io::Write;
+            // u32::MAX has 10 decimal digits.
+            let mut buf = Vec::with_capacity(nonce_bytes.len() + 10);
+            buf.extend_from_slice(nonce_bytes);
+            write!(buf, "{counter}").expect("writing to a Vec cannot fail");
+            buf
+        }
+    }
 }
 
 /// Generates 16 random bytes using the OS random source.
@@ -133,8 +146,14 @@ mod tests {
     #[test]
     fn test_build_password() {
         let nonce = [0u8; 4];
-        let pwd = build_password(&nonce, 1);
-        assert_eq!(pwd, vec![0, 0, 0, 0, 0, 0, 0, 1]);
+        assert_eq!(
+            build_password(&nonce, 1, CounterMode::Uint32),
+            vec![0, 0, 0, 0, 0, 0, 0, 1]
+        );
+        assert_eq!(
+            build_password(&nonce, 4_294_967_295, CounterMode::String),
+            [&nonce[..], b"4294967295"].concat()
+        );
     }
 
     #[test]

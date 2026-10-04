@@ -95,6 +95,7 @@ Generates a new challenge with a random 16-byte nonce and salt. If `hmac_signatu
 | `algorithm` | `String` | — | KDF algorithm string (see [Algorithms](#algorithms)) |
 | `cost` | `u32` | — | Algorithm cost (iterations, time cost, N for scrypt) |
 | `counter` | `Option<u32>` | `None` | Enables deterministic mode; key prefix is derived from this counter |
+| `counter_mode` | `CounterMode` | `Uint32` | Counter encoding in the KDF password: `Uint32` (4 big-endian bytes, v2) or `String` (decimal UTF-8, v1 compatibility). Must match the solver and verifier |
 | `data` | `Option<BTreeMap<String, Value>>` | `None` | Arbitrary metadata embedded in the signed challenge |
 | `expires_at` | `Option<i64>` | `None` | Unix timestamp (seconds) after which the challenge is invalid; `0` means no expiry |
 | `hmac_algorithm` | `HmacAlgorithm` | `Sha256` | HMAC digest algorithm |
@@ -121,6 +122,7 @@ Iterates counter values from `counter_start`, incrementing by `counter_step`, un
 | Field | Default | Description |
 |---|---|---|
 | `challenge` | — | Reference to the challenge to solve |
+| `counter_mode` | `CounterMode::Uint32` | Counter encoding; must match the challenge's issuer |
 | `counter_start` | `0` | First counter value to try |
 | `counter_step` | `1` | Increment per attempt |
 | `timeout_ms` | `90_000` | Maximum solve time in milliseconds; `0` = no timeout |
@@ -149,6 +151,7 @@ Verifies a submitted solution in three steps:
 | `solution` | — | The solution submitted by the client |
 | `hmac_signature_secret` | — | Secret used when the challenge was created |
 | `hmac_algorithm` | `Sha256` | HMAC digest algorithm |
+| `counter_mode` | `CounterMode::Uint32` | Counter encoding used when re-deriving the key |
 | `hmac_key_signature_secret` | `None` | Secret for fast-path key signature verification; empty = absent |
 
 Use `VerifySolutionOptions::new(&challenge, &solution, "secret")` for defaults.

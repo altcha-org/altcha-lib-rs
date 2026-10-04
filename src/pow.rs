@@ -57,7 +57,7 @@ pub fn create_challenge(options: CreateChallengeOptions) -> Result<Challenge> {
     let derived_key_bytes: Option<Vec<u8>> = if let Some(counter) = options.counter {
         let nonce_bytes = hex_to_bytes(&parameters.nonce)?;
         let salt_bytes = hex_to_bytes(&parameters.salt)?;
-        let password = build_password(&nonce_bytes, counter);
+        let password = build_password(&nonce_bytes, counter, options.counter_mode);
         let key = derive_key(&parameters, &salt_bytes, &password)?;
         // Cap at half the key so the prefix never covers the whole key (and never
         // indexes past it). Uses the actual key length: SHA output may be shorter than
@@ -138,7 +138,7 @@ pub fn solve_challenge(options: SolveChallengeOptions<'_>) -> Result<Option<Solu
             return Ok(None);
         }
 
-        let password = build_password(&nonce_bytes, counter);
+        let password = build_password(&nonce_bytes, counter, options.counter_mode);
         let derived = derive_key(params, &salt_bytes, &password)?;
 
         let matched = key_prefix.matches(&derived);
@@ -275,7 +275,7 @@ pub fn verify_solution(options: VerifySolutionOptions<'_>) -> Result<VerifySolut
     // and require it to satisfy the signed key prefix.
     let nonce_bytes = hex_to_bytes(&params.nonce)?;
     let salt_bytes = hex_to_bytes(&params.salt)?;
-    let password = build_password(&nonce_bytes, solution.counter);
+    let password = build_password(&nonce_bytes, solution.counter, options.counter_mode);
     let derived = derive_key(params, &salt_bytes, &password)?;
     let derived_hex = bytes_to_hex(&derived);
     let key_matches = constant_time_equal_hex(&derived_hex, &solution.derived_key);

@@ -51,7 +51,7 @@ pub use server_signature::{
     parse_verification_data, verify_fields_hash, verify_server_signature,
 };
 pub use types::{
-    Challenge, ChallengeParameters, CreateChallengeOptions, HmacAlgorithm, Payload, Solution,
-    ServerSignaturePayload, ServerSignatureVerificationData, SolveChallengeOptions,
+    Challenge, ChallengeParameters, CounterMode, CreateChallengeOptions, HmacAlgorithm, Payload,
+    ServerSignaturePayload, ServerSignatureVerificationData, Solution, SolveChallengeOptions,
     VerifySolutionOptions, VerifySolutionResult, VerifyServerSignatureResult,
 };

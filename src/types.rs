@@ -142,6 +142,16 @@ pub struct VerifyServerSignatureResult {
     pub verification_data: Option<ServerSignatureVerificationData>,
 }
 
+/// Encoding of the counter appended to the nonce to form the KDF password.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum CounterMode {
+    /// Big-endian 32-bit integer (4 bytes). The v2 default.
+    #[default]
+    Uint32,
+    /// Decimal string as UTF-8 (e.g. `"42"`), for backward compatibility with v1.
+    String,
+}
+
 /// Options for creating a new challenge.
 pub struct CreateChallengeOptions {
     /// Key derivation algorithm (e.g. `"PBKDF2/SHA-256"`, `"SCRYPT"`, `"ARGON2ID"`).
@@ -149,6 +159,9 @@ pub struct CreateChallengeOptions {
     /// Optional pre-determined counter for deterministic mode.
     /// When set, the key prefix is derived from this counter value.
     pub counter: Option<u32>,
+    /// Counter encoding used to derive the key in deterministic mode (default:
+    /// [`CounterMode::Uint32`]).
+    pub counter_mode: CounterMode,
     /// Algorithm-specific cost parameter (iterations, time cost, etc.).
     pub cost: u32,
     /// Arbitrary metadata to embed in the challenge.
@@ -183,6 +196,7 @@ impl Default for CreateChallengeOptions {
         Self {
             algorithm: "PBKDF2/SHA-256".to_string(),
             counter: None,
+            counter_mode: CounterMode::Uint32,
             cost: 100_000,
             data: None,
             expires_at: None,
@@ -202,6 +216,8 @@ impl Default for CreateChallengeOptions {
 pub struct SolveChallengeOptions<'a> {
     /// The challenge to solve.
     pub challenge: &'a Challenge,
+    /// Counter encoding (default: [`CounterMode::Uint32`]).
+    pub counter_mode: CounterMode,
     /// Starting counter value (default: 0).
     pub counter_start: u32,
     /// Counter increment per iteration (default: 1).
@@ -215,6 +231,7 @@ impl<'a> SolveChallengeOptions<'a> {
     pub fn new(challenge: &'a Challenge) -> Self {
         Self {
             challenge,
+            counter_mode: CounterMode::Uint32,
             counter_start: 0,
             counter_step: 1,
             timeout_ms: 90_000,
@@ -228,6 +245,8 @@ pub struct VerifySolutionOptions<'a> {
     pub challenge: &'a Challenge,
     /// The solution submitted by the client.
     pub solution: &'a Solution,
+    /// Counter encoding used when re-deriving the key (default: [`CounterMode::Uint32`]).
+    pub counter_mode: CounterMode,
     /// HMAC algorithm used to sign the challenge (default: `HmacAlgorithm::Sha256`).
     pub hmac_algorithm: HmacAlgorithm,
     /// HMAC secret for verifying derived-key signatures (deterministic mode). Empty is
@@ -246,6 +265,7 @@ impl<'a> VerifySolutionOptions<'a> {
         Self {
             challenge,
             solution,
+            counter_mode: CounterMode::Uint32,
             hmac_algorithm: HmacAlgorithm::Sha256,
             hmac_key_signature_secret: None,
             hmac_signature_secret: hmac_signature_secret.into(),
