@@ -1,4 +1,6 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use web_time::{Instant, SystemTime, UNIX_EPOCH};
 
 use crate::algorithms::derive_key;
 use crate::error::{Error, Result};
@@ -217,8 +219,8 @@ pub fn verify_solution(options: VerifySolutionOptions<'_>) -> Result<VerifySolut
     // `0` means no expiry, negative timestamps are always in the past, and the
     // challenge is expired as soon as `now` passes `expires_at` (sub-second precision).
     if let Some(expires_at) = params.expires_at.filter(|&t| t != 0) {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
             .unwrap_or_default();
         let expired =
             u64::try_from(expires_at).map_or(true, |secs| now > Duration::from_secs(secs));
