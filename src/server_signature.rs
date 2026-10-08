@@ -69,7 +69,7 @@ pub fn verify_server_signature(
     payload: &ServerSignaturePayload,
     hmac_secret: &str,
 ) -> Result<VerifyServerSignatureResult> {
-    let start = std::time::Instant::now();
+    let start = web_time::Instant::now();
 
     let algorithm = parse_hmac_algorithm(&payload.algorithm)?;
 
@@ -85,8 +85,8 @@ pub fn verify_server_signature(
         .as_ref()
         .and_then(|d| d.expire)
         .map(|exp| {
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
+            let now = web_time::SystemTime::now()
+                .duration_since(web_time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs();
             now > exp

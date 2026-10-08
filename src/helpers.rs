@@ -126,7 +126,7 @@ pub fn random_bytes_16() -> [u8; 16] {
 }
 
 /// Returns elapsed milliseconds since `start` with 0.1 ms precision.
-pub fn elapsed_ms(start: std::time::Instant) -> f64 {
+pub fn elapsed_ms(start: web_time::Instant) -> f64 {
     let nanos = start.elapsed().as_nanos() as f64;
     (nanos / 100_000.0).floor() / 10.0
 }

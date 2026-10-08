@@ -25,6 +25,7 @@ rand = "0.8"
 hex = "0.4"
 subtle = "2"
 thiserror = "2"
+web-time = "1"
 
 [dev-dependencies]
 axum = "0.8"
