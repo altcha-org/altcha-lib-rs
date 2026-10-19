@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::error::{Error, Result};
 use crate::helpers::{bytes_to_hex, constant_time_equal_hex, elapsed_ms, hmac_sign, sha_hash};
+use crate::time::{unix_now, Instant};
 use crate::types::{
     HmacAlgorithm, ServerSignaturePayload, ServerSignatureVerificationData,
     VerifyServerSignatureResult,
@@ -69,7 +70,7 @@ pub fn verify_server_signature(
     payload: &ServerSignaturePayload,
     hmac_secret: &str,
 ) -> Result<VerifyServerSignatureResult> {
-    let start = std::time::Instant::now();
+    let start = Instant::now();
 
     let algorithm = parse_hmac_algorithm(&payload.algorithm)?;
 
@@ -85,10 +86,7 @@ pub fn verify_server_signature(
         .as_ref()
         .and_then(|d| d.expire)
         .map(|exp| {
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
+            let now = unix_now().as_secs();
             now > exp
         })
         .unwrap_or(false);

@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crate::algorithms::derive_key;
 use crate::error::{Error, Result};
@@ -6,6 +6,7 @@ use crate::helpers::{
     buffer_starts_with, build_password, bytes_to_hex, canonical_json, constant_time_equal_hex,
     elapsed_ms, hex_to_bytes, hmac_sign, random_bytes_16,
 };
+use crate::time::{unix_now, Instant};
 use crate::types::{
     Challenge, ChallengeParameters, CreateChallengeOptions, HmacAlgorithm, Solution,
     SolveChallengeOptions, VerifySolutionOptions, VerifySolutionResult,
@@ -217,9 +218,7 @@ pub fn verify_solution(options: VerifySolutionOptions<'_>) -> Result<VerifySolut
     // `0` means no expiry, negative timestamps are always in the past, and the
     // challenge is expired as soon as `now` passes `expires_at` (sub-second precision).
     if let Some(expires_at) = params.expires_at.filter(|&t| t != 0) {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default();
+        let now = unix_now();
         let expired =
             u64::try_from(expires_at).map_or(true, |secs| now > Duration::from_secs(secs));
         if expired {

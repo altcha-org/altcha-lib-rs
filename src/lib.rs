@@ -43,6 +43,7 @@ pub mod error;
 mod helpers;
 mod pow;
 mod server_signature;
+mod time;
 pub mod types;
 
 pub use error::{Error, Result};

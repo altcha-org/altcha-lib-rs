@@ -11,6 +11,10 @@ repository = "https://github.com/altcha-org/altcha-lib-rs"
 [features]
 argon2 = ["dep:argon2"]
 scrypt = ["dep:scrypt"]
+# Enables `wasm32-unknown-unknown` support for JS hosts (browsers, Node.js, Cloudflare
+# Workers): clock via `Date.now()` and randomness via `crypto.getRandomValues()`.
+# No effect on other targets.
+js = ["dep:js-sys", "dep:getrandom"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -25,6 +29,10 @@ rand = "0.8"
 hex = "0.4"
 subtle = "2"
 thiserror = "2"
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+js-sys = { version = "0.3", optional = true }
+getrandom = { version = "0.2", features = ["js"], optional = true }
 
 [dev-dependencies]
 axum = "0.8"

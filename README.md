@@ -28,8 +28,11 @@ altcha = { version = "0", features = ["argon2", "scrypt"] }
 |---|---|---|
 | `argon2` | Argon2id algorithm | no |
 | `scrypt` | scrypt algorithm | no |
+| `js` | `wasm32-unknown-unknown` support on JS hosts (browsers, Node.js, Cloudflare Workers); no effect on other targets | no |
 
 PBKDF2 and iterative SHA algorithms are always available.
+
+On `wasm32-unknown-unknown`, `std::time` panics and `getrandom` needs a JS backend; the `js` feature uses `Date.now()` for timing and expiry checks and `crypto.getRandomValues()` for randomness. WASI targets work without it. For solving challenges in the browser, prefer the [ALTCHA widget](https://github.com/altcha-org/altcha), which uses native WebCrypto.
 
 ## Quick start
 
