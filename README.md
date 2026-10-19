@@ -48,7 +48,7 @@ let challenge = create_challenge(CreateChallengeOptions {
     // PBKDF2 iterations
     cost: 5_000,
     // Random counter enables deterministic mode
-    counter: Some(rand::thread_rng().gen_range(5_000..=10_000)),
+    counter: Some(rand::random_range(5_000..=10_000)),
     // Expire challenges after 10 minutes so they cannot be reused indefinitely.
     expires_at: Some(
         std::time::SystemTime::now()

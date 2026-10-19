@@ -117,11 +117,10 @@ pub fn build_password(nonce_bytes: &[u8], counter: u32, mode: CounterMode) -> Ve
     }
 }
 
-/// Generates 16 random bytes using the OS random source.
+/// Generates 16 random bytes from a thread-local CSPRNG seeded by the OS.
 pub fn random_bytes_16() -> [u8; 16] {
-    use rand::RngCore;
     let mut bytes = [0u8; 16];
-    rand::thread_rng().fill_bytes(&mut bytes);
+    rand::fill(&mut bytes);
     bytes
 }
 
