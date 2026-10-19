@@ -2,6 +2,7 @@
 name = "altcha"
 version = "1.0.0"
 edition = "2021"
+rust-version = "1.85"
 authors = ["Daniel Regeci <536331+ovx@users.noreply.github.com>"]
 description = "The official Rust implementation of the ALTCHA Proof-of-Work (v2) protocol."
 license = "MIT"
